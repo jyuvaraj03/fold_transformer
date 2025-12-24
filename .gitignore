@@ -3,3 +3,9 @@ output/
 __pycache__/
 *.pyc
 .DS_Store
+
+# Build artifacts
+dist/
+build/
+*.spec
+src/*.egg-info/
