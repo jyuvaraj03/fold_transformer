@@ -4,7 +4,7 @@ from .models import Transaction
 from datetime import datetime
 import pytz
 
-def process_file(input_path: str, output_dir: str, target_timezone: str = 'Asia/Kolkata'):
+def process_file(input_path: str, output_dir: str, target_timezone: str = 'Asia/Kolkata', since_date: str = None):
     """
     Reads the CSV file, processes transactions, and writes to account-specific CSVs.
     """
@@ -40,6 +40,16 @@ def process_file(input_path: str, output_dir: str, target_timezone: str = 'Asia/
     
     tz = pytz.timezone(target_timezone)
     
+    since_dt = None
+    if since_date:
+        try:
+            since_dt = datetime.strptime(since_date, '%Y-%m-%d')
+            since_dt = tz.localize(since_dt)
+            print(f"Filtering transactions since {since_dt.isoformat()}")
+        except Exception as e:
+            print(f"Error parsing since_date: {e}")
+            return
+
     for idx, row in df.iterrows():
         try:
             ts = pd.to_datetime(row.get('txn_timestamp'))
@@ -50,6 +60,9 @@ def process_file(input_path: str, output_dir: str, target_timezone: str = 'Asia/
                 ts = ts.astimezone(tz)
         except:
             ts = None
+
+        if ts and since_dt and ts < since_dt:
+            continue
 
         txn = Transaction(
             account_number=row.get('account_number', '').strip(),
