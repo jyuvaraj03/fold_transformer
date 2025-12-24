@@ -7,22 +7,25 @@ def main():
     parser = argparse.ArgumentParser(description="Fold Transaction Transformer")
     parser.add_argument('--input', default='data', help='Input directory or file')
     parser.add_argument('--output', default='output', help='Output directory')
+    parser.add_argument('--timezone', default='Asia/Kolkata', help='Target timezone for output dates (e.g. Asia/Kolkata)')
     
     args = parser.parse_args()
     
     input_path = args.input
     output_dir = args.output
+    target_timezone = args.timezone
     
+    if os.path.isdir(input_path):
+        print(f"Error: Input path '{input_path}' is a directory. Please provide a single CSV file.")
+        sys.exit(1)
+        
     if os.path.isfile(input_path):
-        process_file(input_path, output_dir)
-    elif os.path.isdir(input_path):
-        # Process all CSVs in directory
-        for f in os.listdir(input_path):
-            if f.lower().endswith('.csv'):
-                full_path = os.path.join(input_path, f)
-                process_file(full_path, output_dir)
+        if not input_path.lower().endswith('.csv'):
+            print(f"Error: Input file '{input_path}' is not a CSV file.")
+            sys.exit(1)
+        process_file(input_path, output_dir, target_timezone)
     else:
-        print(f"Input path not found: {input_path}")
+        print(f"Error: Input path not found: {input_path}")
         sys.exit(1)
 
 if __name__ == "__main__":

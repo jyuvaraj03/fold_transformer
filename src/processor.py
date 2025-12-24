@@ -2,8 +2,9 @@ import pandas as pd
 import os
 from .models import Transaction
 from datetime import datetime
+import pytz
 
-def process_file(input_path: str, output_dir: str):
+def process_file(input_path: str, output_dir: str, target_timezone: str = 'Asia/Kolkata'):
     """
     Reads the CSV file, processes transactions, and writes to account-specific CSVs.
     """
@@ -37,9 +38,16 @@ def process_file(input_path: str, output_dir: str):
     # Group by account logic
     grouped = {}
     
+    tz = pytz.timezone(target_timezone)
+    
     for idx, row in df.iterrows():
         try:
             ts = pd.to_datetime(row.get('txn_timestamp'))
+            if ts is not None and ts.tzinfo is None:
+                # Assume UTC as per instructions
+                ts = pytz.utc.localize(ts)
+            if ts is not None:
+                ts = ts.astimezone(tz)
         except:
             ts = None
 
@@ -66,12 +74,42 @@ def process_file(input_path: str, output_dir: str):
         if safe_key not in grouped:
             grouped[safe_key] = []
         
-        grouped[safe_key].append(row)
+        # Prepare processed row
+        amount = float(row.get('amount', 0.0))
+        type_val = row.get('type', '').upper()
+        
+        debit_amount = 0.0
+        credit_amount = 0.0
+        
+        if type_val == 'DEBIT':
+            debit_amount = abs(amount)
+        elif type_val == 'CREDIT':
+            credit_amount = abs(amount)
+        else:
+            # Fallback to sign if type is unknown
+            if amount < 0:
+                debit_amount = abs(amount)
+            else:
+                credit_amount = amount
+
+        processed_row = {
+            'date': ts.date().isoformat() if ts else '',
+            'payee': txn.merchant or txn.narration,
+            'notes': txn.narration if txn.merchant else txn.reference,
+            'debit_amount': debit_amount,
+            'credit_amount': credit_amount
+        }
+        
+        grouped[safe_key].append(processed_row)
         
     # Write outputs
     print(f"Found {len(grouped)} unique accounts.")
     for key, rows in grouped.items():
         out_df = pd.DataFrame(rows)
+        # Reorder columns as requested
+        cols = ['date', 'payee', 'notes', 'debit_amount', 'credit_amount']
+        out_df = out_df[cols]
+        
         filename = f"{key}.csv"
         out_path = os.path.join(output_dir, filename)
         
